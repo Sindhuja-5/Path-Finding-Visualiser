@@ -220,6 +220,16 @@ class Node:
                 self.width,
             ),
         )
+        if self.is_weight():
+            font = get_font(max(8, min(18, self.width // 2)), bold=True)
+            text = font.render("5", True, WHITE)
+            text_rect = text.get_rect(
+                center=(
+                    self.x + self.width // 2,
+                    self.y + self.width // 2
+                )
+            )
+            win.blit(text, text_rect)
 
     def update_neighbors(self, grid, diag=False):
         self.neighbors = []
@@ -285,6 +295,18 @@ class Node:
 
     def __lt__(self, other):
         return False
+    
+    def clear_search(self):
+        if self.is_start():
+            self.color = START
+        elif self.is_end():
+            self.color = END
+        elif self.is_barrier():
+            self.color = BLACK
+        elif self.is_weight():
+            self.color = BROWN
+        else:
+            self.color = WHITE
 
 
 # ============================================================
@@ -1369,7 +1391,7 @@ def draw_section_title(
     )
 
     rect = rendered.get_rect(
-        center=(x, y)
+        midleft=(x, y)
     )
 
     win.blit(
@@ -1523,22 +1545,32 @@ def make_ui_buttons(
             "Weight",
         ),
 
-        # 4 - Clear
+        # 4 - Clear Path
         Button(
             panel_x + margin_x,
             rows_y
             + (button_height + 12) * 2,
             standard_button_width,
             button_height,
-            "Clear",
+            "Clear Path",
+        ),
+
+        # 5 - Clear Grid
+        Button(
+            panel_x + margin_x + standard_button_width + small_gap,
+            rows_y
+            + (button_height + 12) * 2,
+            standard_button_width,
+            button_height,
+            "Clear Grid",
         ),
     ]
 
     # ---------------- Algorithms ----------------
 
     algorithm_y = (
-        options[4].y
-        + options[4].height
+        options[5].y
+        + options[5].height
         + 38
     )
 
@@ -1634,7 +1666,7 @@ def draw(
     draw_section_title(
         win,
         "Options",
-        panel_x + panel_width // 2,
+        panel_x + 10,
         options_title_y,
     )
 
@@ -1664,7 +1696,7 @@ def draw(
     draw_section_title(
         win,
         "Algorithms",
-        panel_x + panel_width // 2,
+        panel_x + 10,
         algorithm_title_y,
     )
 
@@ -1737,15 +1769,15 @@ async def main(win, width):
     )
 
     output.set_text1(
-        "1. Build Maze"
+        "1. Build maze and add weights to cells"
     )
 
     output.set_text2(
-        "2. Pick starting node"
+        "2. Pick starting node and ending node"
     )
 
     output.set_text3(
-        "3. Pick ending node"
+        "3. Pick an algorithm"
     )
 
     start = None
@@ -1950,15 +1982,15 @@ async def main(win, width):
                     )
 
                     output.set_text1(
-                        "1. Build Maze"
+                        "1. Build maze and add weights to cells"
                     )
 
                     output.set_text2(
-                        "2. Pick starting node"
+                        "2. Pick starting node and ending node"
                     )
 
                     output.set_text3(
-                        "3. Pick ending node"
+                        "3. Pick an algorithm"
                     )
 
                     started = False
@@ -2113,39 +2145,35 @@ async def main(win, width):
                         output.set_text1(
                             "Weight mode disabled"
                         )
-                        output.set_text2("")
-                        output.set_text3("")
 
-                # ---------------- Clear ----------------
+                        output.set_text2(
+                            "2. Pick starting node and ending node"
+                        )
+
+                        output.set_text3(
+                            "3. Pick an algorithm"
+                        )
+
+                # ---------------- Clear Path----------------
 
                 elif options[4].is_hover(pos):
-
-                    start = None
-                    end = None
-
-                    visited = []
-                    path = []
-                    weighted = []
-
+                    started = False
                     weight_mode = False
 
-                    clear_grid(grid)
+                    for row in grid:
+                        for node in row:
+                            node.clear_search()
 
-                    output.set_label1(
-                        f"Number of rows: {rows}"
-                    )
+                    visited.clear()
 
-                    output.set_text1(
-                        "1. Build Maze"
-                    )
+                    for row in grid:
+                        for node in row:
+                            if node.is_weight():
+                                weighted.append(node)
 
-                    output.set_text2(
-                        "2. Pick starting node"
-                    )
-
-                    output.set_text3(
-                        "3. Pick ending node"
-                    )
+                    output.set_text1("Paths cleared")
+                    output.set_text2("Maze and weights preserved")
+                    output.set_text3("Ready to run another algorithm")
 
                 # ---------------- Decrease rows ----------------
 
@@ -2174,15 +2202,15 @@ async def main(win, width):
                     )
 
                     output.set_text1(
-                        "1. Build Maze"
+                        "1. Build maze and add weights to cells"
                     )
 
                     output.set_text2(
-                        "2. Pick starting node"
+                        "2. Pick starting node and ending node"
                     )
 
                     output.set_text3(
-                        "3. Pick ending node"
+                        "3. Pick an algorithm"
                     )
 
                     options[1].text = (
@@ -2216,21 +2244,33 @@ async def main(win, width):
                     )
 
                     output.set_text1(
-                        "1. Build Maze"
+                        "1. Build maze and add weights to cells"
                     )
 
                     output.set_text2(
-                        "2. Pick starting node"
+                        "2. Pick starting node and ending node"
                     )
 
                     output.set_text3(
-                        "3. Pick ending node"
+                        "3. Pick an algorithm"
                     )
 
                     options[1].text = (
                         f"Rows: {rows}"
                     )
+                elif options[5].is_hover(pos):
+                    started = False
+                    weight_mode = False
 
+                    grid = make_grid(rows, GRID_WIDTH)
+                    start = None
+                    end = None
+                    weighted = []
+
+                    output.set_text1("Grid cleared")
+                    output.set_text2("Rebuild the maze")
+                    output.set_text3("Select start point, end points and algorithm")
+    
         # Required for browser/Pygbag responsiveness.
         await asyncio.sleep(0)
 
