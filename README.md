@@ -1,17 +1,106 @@
-Objective of the project : Generate the most optimal path solution between two given points using A – star algorithm.
+# **Path Finding Visualiser**
 
-1)Overview of the project
+An interactive path-finding visualiser built with **Python, Pygame, and Pygbag**. Visualise how different path-finding algorithms explore a grid, find the shortest path, and handle barriers and weighted cells.
 
-• MAZE CREATION: Maze is created using recursive division. This algorithm works as follows: Begin with the maze's space with no walls. Call this a chamber. Divide the chamber with a randomly positioned wall (or multiple walls) where each wall contains a randomly positioned passage opening within it. Then recursively repeat the process on the sub chambers until all chambers are minimum sized. This method results in mazes with long straight walls crossing their space, making it easier to see which areas to avoid.
+This project was built to make path-finding algorithms easier to understand by providing a visual representation of how they explore a search space. Instead of only seeing the final shortest path, the visualiser shows the exploration process and allows different algorithms and grid configurations to be tested interactively.
 
-• A* algorithm: A* is a graph traversal and path search algorithm, which is often used in many fields of computer science due to its completeness, optimality, and optimal efficiency. One major practical drawback is its O(bd) space complexity, as it stores all generated nodes in memory. Thus, in practical travel-routing systems, it is generally outperformed by algorithms which can pre-process the graph to attain better performance, as well as memory-bounded approaches; however, A* is still the best solution in many cases. What A* Search Algorithm does is that at each step it picks the node according to a value-‘f’ which is a parameter equal to the sum of two other parameters – ‘g’ and ‘h’. At each step it picks the node/cell having the lowest ‘f’, and process that node/cell. We define ‘g’ and ‘h’ as simply as possible below g = the movement cost to move from the starting point to a given square on the grid, following the path generated to get there. h = the estimated movement cost to move from that given square on the grid to the final destination. This is often referred to as the heuristic, which is nothing but a kind of smart guess. We really don’t know the actual distance until we find the path, because all sorts of things can be in the way.
+## **🚀 Live Demo**
 
-• We allow the user to create a start node(pink) and end node(red), and the walls(black) to barrier the path between the nodes. • If ever the path is not found a ‘Path Not Found’ Message is displayed in the dialog box. • There is special visualization for the path finding with multicolour display as the path progresses.
+**[Open the Path Finding Visualiser](https://sindhuja-5.github.io/Path-Finding-Visualiser/)**
 
-2.Description about Python Packages used
+The project runs directly in the browser using Pygbag/WebAssembly — no Python installation is required for the live demo.
 
-• Pygame is a free and open-source cross-platform library for the development of multimedia applications like video games using Python. It uses the Simple Direct Media Layer library and several other popular libraries to abstract the most common functions, making writing these programs a more intuitive task. Pygame is suitable to create client-side applications that can be potentially wrapped in a standalone executable.
+## **✨ Features**
 
-• The priority queue is an advanced type of the queue data structure. Instead of dequeuing the oldest element, a priority queue sorts and dequeues elements based on their priorities. Priority queues are used to handle scheduling problems where some tasks are prioritized over others. The queue.PriorityQueue ClassPython provides a built-in implementation of the priority queue data structure. Since the queue.PriorityQueue class needs to maintain the order of its elements, a sorting mechanism is required every time a new element is enqueued. Python solves this by using a binary heap to implement the priority queue.
+- Interactive grid-based path finding
+- Adjustable maze size from **5 × 5 to 50 × 50** (Default maze size: **25 × 25**)
+- Generate random mazes using recursive division
+- Add weighted cells
+- Clear paths (without resetting the grid)
+- Clear the entire grid
+- Visualise algorithm exploration step-by-step
+- Compare **A\*** and **Dijkstra's Algorithm**
+- Runs locally with Python/Pygame
+- Runs in the browser through Pygbag
 
-• NumPy is a Python library used for working with arrays. It also has functions for working in domain of linear algebra, fourier transform, and matrices.NumPy aims to provide an array object that is up to 50x faster than traditional Python lists. The array object in NumPy is called ndarray, it provides a lot of supporting functions that make working with ndarray very easy.
+## **🧠 Algorithms**
+
+### A* Search
+
+A* uses the cost of the path travelled so far together with a heuristic estimate of the remaining distance.
+
+It uses:
+
+```text
+f(n) = g(n) + h(n)
+
+where:
+g(n) = cost from the start node to the current node
+h(n) = estimated cost from the current node to the target
+f(n) = estimated total cost
+```
+For this project, A* uses the Manhattan distance as its heuristic.
+
+### **Dijkstra's Algorithm**
+
+Dijkstra's algorithm explores nodes based only on the accumulated cost from the start node.
+
+It guarantees the shortest path when all edge weights are non-negative, but unlike A*, it does not use a heuristic to guide the search toward the target.
+
+## **🎮 How to Use**
+1. Choose the maze size
+2. Build a maze if you want randomly generated barriers
+3. Add weights if you want to visualise weighted path finding
+4. Select an algorithm
+5. Watch the algorithm explore the grid and find the path
+
+### Grid Controls
+Left click — interact with grid cells
+Build Maze — generate a random maze
+Weight — enable weighted cells
+Clear Path — remove the current path while keeping the grid including barriers and weighted cells
+Clear Grid — reset the grid
+− / + — decrease or increase maze size
+A* — run A* search
+Dijkstra — run Dijkstra's algorithm
+
+## **🖥️ Run Locally**
+Requirements
+Python 3.10+
+Pygame
+
+### Install Pygame:
+
+pip install pygame
+
+### Clone the repository:
+
+git clone https://github.com/sindhuja-5/Path-Finding-Visualiser.git
+cd Path-Finding-Visualiser
+
+### Run the application:
+
+python main.py
+
+The Pygame window should open automatically.
+
+## **🌐 Build for the Web**
+
+The project uses Pygbag to run the Pygame application in the browser.
+
+Install Pygbag:
+
+pip install pygbag
+
+Build the web version:
+
+python -m pygbag --build .
+
+The generated web build can then be deployed using GitHub Pages or another static hosting service.
+
+## **🛠️ Tech Stack**
+1. Python
+2. Pygame
+3. Pygbag
+4. WebAssembly
+5. GitHub Pages
