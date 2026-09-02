@@ -10,6 +10,7 @@ import pygame
 
 GRID_WIDTH = 700
 PANEL_WIDTH = 600
+
 WINDOW_WIDTH = GRID_WIDTH + PANEL_WIDTH
 WINDOW_HEIGHT = 700
 
@@ -59,7 +60,6 @@ SCREEN_COLOR = (204, 230, 255)
 # ============================================================
 
 def get_font(size, bold=False):
-    """Use a common font with a safe fallback."""
     return pygame.font.SysFont(
         "comicsans",
         size,
@@ -68,17 +68,48 @@ def get_font(size, bold=False):
 
 
 # ============================================================
+# WEB-SAFE MOUSE POSITION
+# ============================================================
+
+def get_mouse_pos(event, win):
+    """
+    Convert browser/Pygbag mouse coordinates to the actual
+    1300x700 Pygame coordinate system.
+
+    This is important because the HTML canvas can be visually
+    scaled by the browser.
+    """
+
+    x, y = event.pos
+
+    try:
+        surface_width, surface_height = win.get_size()
+
+        # Pygame coordinates are already correct in many cases.
+        # The conversion below protects against browser scaling.
+        canvas = pygame.display.get_surface()
+
+        if canvas:
+            actual_width, actual_height = canvas.get_size()
+
+            if actual_width > 0 and actual_height > 0:
+                x = x * WINDOW_WIDTH / actual_width
+                y = y * WINDOW_HEIGHT / actual_height
+
+    except Exception:
+        pass
+
+    x = max(0, min(WINDOW_WIDTH - 1, int(x)))
+    y = max(0, min(WINDOW_HEIGHT - 1, int(y)))
+
+    return x, y
+
+
+# ============================================================
 # GRID METRICS
 # ============================================================
 
 def get_grid_metrics(rows, width):
-    """
-    Calculate grid cell size and centered offset.
-
-    The grid is kept inside the main 800x800 area with
-    padding on all four sides.
-    """
-
     available_width = width - (2 * GRID_PADDING)
 
     gap = max(
@@ -98,6 +129,7 @@ def get_grid_metrics(rows, width):
 # ============================================================
 
 class Node:
+
     def __init__(
         self,
         row,
@@ -220,25 +252,41 @@ class Node:
                 self.width,
             ),
         )
+
         if self.is_weight():
-            font = get_font(max(8, min(18, self.width // 2)), bold=True)
-            text = font.render("5", True, WHITE)
+            font = get_font(
+                max(
+                    8,
+                    min(18, self.width // 2),
+                ),
+                bold=True,
+            )
+
+            text = font.render(
+                "5",
+                True,
+                WHITE,
+            )
+
             text_rect = text.get_rect(
                 center=(
                     self.x + self.width // 2,
-                    self.y + self.width // 2
+                    self.y + self.width // 2,
                 )
             )
-            win.blit(text, text_rect)
 
-    def update_neighbors(self, grid, diag=False):
+            win.blit(
+                text,
+                text_rect,
+            )
+
+    def update_neighbors(self, grid):
         self.neighbors = []
 
         r = self.row
         c = self.col
         rows = self.total_rows
 
-        # Down
         if (
             r < rows - 1
             and not grid[r + 1][c].is_barrier()
@@ -247,7 +295,6 @@ class Node:
                 grid[r + 1][c]
             )
 
-        # Up
         if (
             r > 0
             and not grid[r - 1][c].is_barrier()
@@ -256,7 +303,6 @@ class Node:
                 grid[r - 1][c]
             )
 
-        # Right
         if (
             c < rows - 1
             and not grid[r][c + 1].is_barrier()
@@ -265,7 +311,6 @@ class Node:
                 grid[r][c + 1]
             )
 
-        # Left
         if (
             c > 0
             and not grid[r][c - 1].is_barrier()
@@ -274,37 +319,22 @@ class Node:
                 grid[r][c - 1]
             )
 
-        # Optional diagonal movement
-        if diag:
-            diagonal_positions = (
-                (r + 1, c + 1),
-                (r - 1, c + 1),
-                (r - 1, c - 1),
-                (r + 1, c - 1),
-            )
-
-            for nr, nc in diagonal_positions:
-                if (
-                    0 <= nr < rows
-                    and 0 <= nc < rows
-                    and not grid[nr][nc].is_barrier()
-                ):
-                    self.neighbors.append(
-                        grid[nr][nc]
-                    )
-
     def __lt__(self, other):
         return False
-    
+
     def clear_search(self):
         if self.is_start():
             self.color = START
+
         elif self.is_end():
             self.color = END
+
         elif self.is_barrier():
             self.color = BLACK
+
         elif self.is_weight():
             self.color = BROWN
+
         else:
             self.color = WHITE
 
@@ -314,6 +344,7 @@ class Node:
 # ============================================================
 
 class Button:
+
     def __init__(
         self,
         x,
@@ -323,14 +354,24 @@ class Button:
         text="",
     ):
         self.color = BUTTON_COLOR
+
         self.x = int(x)
         self.y = int(y)
-        self.width = max(1, int(width))
-        self.height = max(1, int(height))
+
+        self.width = max(
+            1,
+            int(width),
+        )
+
+        self.height = max(
+            1,
+            int(height),
+        )
+
         self.text = text
 
     def _get_text_font(self):
-        # Automatically shrink long labels so they never overflow.
+
         max_width = max(
             10,
             self.width - 18,
@@ -338,11 +379,16 @@ class Button:
 
         size = min(
             24,
-            max(13, self.height - 10),
+            max(
+                13,
+                self.height - 10,
+            ),
         )
 
         while size > 11:
+
             font = get_font(size)
+
             text = font.render(
                 self.text,
                 True,
@@ -370,7 +416,9 @@ class Button:
         )
 
     def draw(self, win, outline=None):
+
         if outline:
+
             pygame.draw.rect(
                 win,
                 outline,
@@ -398,6 +446,7 @@ class Button:
         )
 
         if self.text:
+
             font, text = self._get_text_font()
 
             text_rect = text.get_rect(
@@ -413,19 +462,22 @@ class Button:
             )
 
     def is_hover(self, pos):
+
         return (
             self.x <= pos[0]
             <= self.x + self.width
-            and self.y <= pos[1]
+            and
+            self.y <= pos[1]
             <= self.y + self.height
         )
 
 
 # ============================================================
-# OUTPUT / INFORMATION PANEL
+# OUTPUT PANEL
 # ============================================================
 
 class Screen:
+
     def __init__(
         self,
         x,
@@ -438,6 +490,7 @@ class Screen:
 
         self.x = int(x)
         self.y = int(y)
+
         self.width = int(width)
         self.height = int(height)
 
@@ -462,7 +515,9 @@ class Screen:
         return self.text1
 
     def draw(self, win, outline=None):
+
         if outline:
+
             pygame.draw.rect(
                 win,
                 outline,
@@ -489,8 +544,8 @@ class Screen:
             border_radius=8,
         )
 
-        # Header / label
         if self.label1:
+
             font = get_font(
                 16,
                 bold=True,
@@ -510,7 +565,6 @@ class Screen:
                 ),
             )
 
-        # Three lines of content
         lines = [
             self.text1,
             self.text2,
@@ -520,6 +574,7 @@ class Screen:
         start_y = self.y + 44
 
         for index, value in enumerate(lines):
+
             if not value:
                 continue
 
@@ -537,12 +592,12 @@ class Screen:
                 BLACK,
             )
 
-            # Scale down if a result line is too long.
             while (
                 text.get_width()
                 > self.width - 24
                 and font_size > 11
             ):
+
                 font_size -= 1
 
                 font = get_font(font_size)
@@ -565,24 +620,20 @@ class Screen:
                 rect,
             )
 
-    def is_hover(self, pos):
-        return (
-            self.x <= pos[0]
-            <= self.x + self.width
-            and self.y <= pos[1]
-            <= self.y + self.height
-        )
-
 
 # ============================================================
 # HEURISTIC
 # ============================================================
 
 def h(p1, p2):
+
     x1, y1 = p1
     x2, y2 = p2
 
-    return abs(x1 - x2) + abs(y1 - y2)
+    return (
+        abs(x1 - x2)
+        + abs(y1 - y2)
+    )
 
 
 # ============================================================
@@ -590,7 +641,9 @@ def h(p1, p2):
 # ============================================================
 
 def visit_animation(visited):
+
     for node in visited[:]:
+
         if (
             node.color == VISIT1
             or node.color == VISIT3
@@ -611,19 +664,23 @@ def visit_animation(visited):
 
 
 def path_animation(path):
+
     for node in path:
+
         if node.is_start():
             continue
 
         r, g, b = node.color
 
         if node.dec_animation:
+
             g -= 1
 
             if g <= PATH1[1]:
                 node.dec_animation = False
 
         else:
+
             g += 1
 
             if g >= PATH2[1]:
@@ -637,7 +694,7 @@ def path_animation(path):
 
 
 # ============================================================
-# PATH RECONSTRUCTION
+# PATH
 # ============================================================
 
 def reconstruct_path(
@@ -645,16 +702,21 @@ def reconstruct_path(
     start,
     current,
 ):
+
     path = []
     cost = 0
 
     while current in came_from:
+
         current = came_from[current]
 
         if current != start:
-            path.insert(0, current)
 
-            # Cost is based on the node entered.
+            path.insert(
+                0,
+                current,
+            )
+
             cost += (
                 5
                 if current.is_weight()
@@ -665,28 +727,18 @@ def reconstruct_path(
 
 
 # ============================================================
-# EVENT PROCESSING
-# ============================================================
-
-def process_quit_events():
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            return False
-
-    return True
-
-
-# ============================================================
 # COMMON SEARCH SETUP
 # ============================================================
 
 def prepare_search(grid):
+
     for row in grid:
+
         for node in row:
+
             node.neighbors = []
             node.dec_animation = False
 
-            # Preserve start/end/barrier/weight states.
             if (
                 node.is_start()
                 or node.is_end()
@@ -698,14 +750,13 @@ def prepare_search(grid):
             node.color = WHITE
 
     for row in grid:
+
         for node in row:
             node.update_neighbors(grid)
 
-    return
-
 
 # ============================================================
-# A* ALGORITHM
+# A*
 # ============================================================
 
 async def A_star(
@@ -717,6 +768,7 @@ async def A_star(
     win,
     width,
 ):
+
     count = 0
     visited = []
 
@@ -747,8 +799,6 @@ async def A_star(
     open_set_hash = {start}
 
     while open_heap:
-        if not process_quit_events():
-            return visited, False
 
         _, _, current = heapq.heappop(
             open_heap
@@ -760,6 +810,7 @@ async def A_star(
         open_set_hash.remove(current)
 
         if current == end:
+
             path, cost = reconstruct_path(
                 came_from,
                 start,
@@ -779,7 +830,7 @@ async def A_star(
                 f"#Visited nodes: {len(visited)}"
             )
 
-            if len(visited):
+            if visited:
                 output.set_text3(
                     f"Efficiency: "
                     f"{round(cost / len(visited), 3)}"
@@ -792,10 +843,12 @@ async def A_star(
             return visited, path
 
         if current != start:
+
             visited.append(current)
             current.make_visit()
 
         for neighbor in current.neighbors:
+
             move_cost = (
                 5
                 if neighbor.is_weight()
@@ -808,7 +861,9 @@ async def A_star(
             )
 
             if tentative_g < g_score[neighbor]:
+
                 came_from[neighbor] = current
+
                 g_score[neighbor] = tentative_g
 
                 count += 1
@@ -837,26 +892,15 @@ async def A_star(
 
         visit_animation(visited)
 
-        for row in grid:
-            for node in row:
-                node.draw(win)
+        draw()
 
-        draw_grid(
-            win,
-            len(grid),
-            width,
-        )
-
-        pygame.display.update()
-
-        # Required so the browser remains responsive when using Pygbag.
         await asyncio.sleep(0)
 
     return visited, False
 
 
 # ============================================================
-# DIJKSTRA ALGORITHM
+# DIJKSTRA
 # ============================================================
 
 async def Dijkstra(
@@ -868,12 +912,6 @@ async def Dijkstra(
     win,
     width,
 ):
-    """
-    Dijkstra's shortest-path algorithm.
-
-    Unlike A*, Dijkstra does not use a heuristic.
-    It always expands the currently known lowest-cost node.
-    """
 
     count = 0
     visited = []
@@ -902,8 +940,6 @@ async def Dijkstra(
     open_set_hash = {start}
 
     while open_heap:
-        if not process_quit_events():
-            return visited, False
 
         current_distance, _, current = (
             heapq.heappop(open_heap)
@@ -914,11 +950,11 @@ async def Dijkstra(
 
         open_set_hash.remove(current)
 
-        # Ignore stale heap entries.
         if current_distance > distance[current]:
             continue
 
         if current == end:
+
             path, cost = reconstruct_path(
                 came_from,
                 start,
@@ -938,7 +974,7 @@ async def Dijkstra(
                 f"#Visited nodes: {len(visited)}"
             )
 
-            if len(visited):
+            if visited:
                 output.set_text3(
                     f"Efficiency: "
                     f"{round(cost / len(visited), 3)}"
@@ -951,10 +987,12 @@ async def Dijkstra(
             return visited, path
 
         if current != start:
+
             visited.append(current)
             current.make_visit()
 
         for neighbor in current.neighbors:
+
             move_cost = (
                 5
                 if neighbor.is_weight()
@@ -967,7 +1005,9 @@ async def Dijkstra(
             )
 
             if new_distance < distance[neighbor]:
+
                 came_from[neighbor] = current
+
                 distance[neighbor] = new_distance
 
                 count += 1
@@ -988,17 +1028,7 @@ async def Dijkstra(
 
         visit_animation(visited)
 
-        for row in grid:
-            for node in row:
-                node.draw(win)
-
-        draw_grid(
-            win,
-            len(grid),
-            width,
-        )
-
-        pygame.display.update()
+        draw()
 
         await asyncio.sleep(0)
 
@@ -1006,24 +1036,19 @@ async def Dijkstra(
 
 
 # ============================================================
-# MAZE HELPERS
+# MAZE
 # ============================================================
 
-def make_black(grid, win):
-    for row in grid:
-        for node in row:
-            node.make_barrier()
-            node.draw(win)
-
-    pygame.display.update()
-
 def get_wall_gaps(start, end):
+
     length = end - start
 
     if length <= 8:
         num_gaps = 5
+
     elif length <= 15:
         num_gaps = 6
+
     else:
         num_gaps = 4
 
@@ -1039,8 +1064,8 @@ def get_wall_gaps(start, end):
         )
     )
 
+
 async def recursive_maze(
-    draw,
     grid,
     left,
     right,
@@ -1048,13 +1073,8 @@ async def recursive_maze(
     bottom,
     win,
     width,
+    draw,
 ):
-    """
-    Recursive Division maze generation.
-
-    The region uses [left, right) x [top, bottom)
-    coordinates.
-    """
 
     if (
         right - left < 2
@@ -1062,13 +1082,15 @@ async def recursive_maze(
     ):
         return
 
-    # Choose orientation based on the shape of the region.
     if right - left != bottom - top:
+
         vertical = (
             right - left
             > bottom - top
         )
+
     else:
+
         vertical = random.choice(
             [True, False]
         )
@@ -1094,7 +1116,6 @@ async def recursive_maze(
             bottom,
         )
 
-        # Build the entire vertical wall first.
         for y in range(top, bottom):
 
             if y in gap_y:
@@ -1102,24 +1123,9 @@ async def recursive_maze(
 
             node = grid[y][wall_x]
 
-            if (
-                not node.is_start()
-                and not node.is_end()
-            ):
-                node.make_barrier()
+            node.make_barrier()
 
-        # Draw only once after the complete wall is created.
-        for row in grid:
-            for n in row:
-                n.draw(win)
-
-        draw_grid(
-            win,
-            len(grid),
-            width,
-        )
-
-        pygame.display.update()
+        draw()
 
         await asyncio.sleep(0)
 
@@ -1144,7 +1150,6 @@ async def recursive_maze(
             right,
         )
 
-        # Build the entire horizontal wall first.
         for x in range(left, right):
 
             if x in gap_x:
@@ -1152,32 +1157,15 @@ async def recursive_maze(
 
             node = grid[wall_y][x]
 
-            if (
-                not node.is_start()
-                and not node.is_end()
-            ):
-                node.make_barrier()
+            node.make_barrier()
 
-        # Draw only once after the complete wall is created.
-        for row in grid:
-            for n in row:
-                n.draw(win)
-
-        draw_grid(
-            win,
-            len(grid),
-            width,
-        )
-
-        pygame.display.update()
+        draw()
 
         await asyncio.sleep(0)
 
-    # Recursively divide the two resulting regions.
     if vertical:
 
         await recursive_maze(
-            draw,
             grid,
             left,
             wall_x,
@@ -1185,10 +1173,10 @@ async def recursive_maze(
             bottom,
             win,
             width,
+            draw,
         )
 
         await recursive_maze(
-            draw,
             grid,
             wall_x + 1,
             right,
@@ -1196,12 +1184,12 @@ async def recursive_maze(
             bottom,
             win,
             width,
+            draw,
         )
 
     else:
 
         await recursive_maze(
-            draw,
             grid,
             left,
             right,
@@ -1209,10 +1197,10 @@ async def recursive_maze(
             wall_y,
             win,
             width,
+            draw,
         )
 
         await recursive_maze(
-            draw,
             grid,
             left,
             right,
@@ -1220,59 +1208,40 @@ async def recursive_maze(
             bottom,
             win,
             width,
+            draw,
         )
 
 
 async def recursive_div(
-    draw,
-    width,
     grid,
-    start,
-    end,
-    left,
-    right,
-    top,
-    bottom,
+    width,
     win,
+    draw,
 ):
-    """
-    Create an outer border and then recursively divide
-    the interior.
-    """
 
     rows = len(grid)
 
     # Outer border.
     for i in range(rows):
+
         grid[0][i].make_barrier()
         grid[rows - 1][i].make_barrier()
         grid[i][0].make_barrier()
         grid[i][rows - 1].make_barrier()
 
-    # Keep the maze visually updated while creating the border.
-    for row in grid:
-        for node in row:
-            node.draw(win)
-
-    draw_grid(
-        win,
-        rows,
-        width,
-    )
-
-    pygame.display.update()
+    draw()
 
     await asyncio.sleep(0)
 
     await recursive_maze(
-        draw,
         grid,
-        left + 1,
-        right - 1,
-        top + 1,
-        bottom - 1,
+        1,
+        rows - 1,
+        1,
+        rows - 1,
         win,
         width,
+        draw,
     )
 
 
@@ -1281,6 +1250,7 @@ async def recursive_div(
 # ============================================================
 
 def make_grid(rows, width):
+
     grid = []
 
     gap, offset = get_grid_metrics(
@@ -1289,9 +1259,11 @@ def make_grid(rows, width):
     )
 
     for row in range(rows):
+
         grid.append([])
 
         for col in range(rows):
+
             grid[row].append(
                 Node(
                     row,
@@ -1305,11 +1277,8 @@ def make_grid(rows, width):
     return grid
 
 
-# ============================================================
-# DRAW GRID
-# ============================================================
-
 def draw_grid(win, rows, width):
+
     gap, offset = get_grid_metrics(
         rows,
         width,
@@ -1318,6 +1287,7 @@ def draw_grid(win, rows, width):
     grid_size = gap * rows
 
     for i in range(rows + 1):
+
         pygame.draw.line(
             win,
             GREY,
@@ -1332,6 +1302,7 @@ def draw_grid(win, rows, width):
         )
 
     for i in range(rows + 1):
+
         pygame.draw.line(
             win,
             GREY,
@@ -1346,17 +1317,23 @@ def draw_grid(win, rows, width):
         )
 
 
-# ============================================================
-# CLICK POSITION
-# ============================================================
-
 def get_clicked_pos(pos, rows, width):
+
     gap, offset = get_grid_metrics(
         rows,
         width,
     )
 
     x, y = pos
+
+    grid_size = gap * rows
+
+    if not (
+        offset <= x < offset + grid_size
+        and
+        offset <= y < offset + grid_size
+    ):
+        return None, None
 
     row = (
         y - offset
@@ -1366,11 +1343,17 @@ def get_clicked_pos(pos, rows, width):
         x - offset
     ) // gap
 
+    if not (
+        0 <= row < rows
+        and 0 <= col < rows
+    ):
+        return None, None
+
     return row, col
 
 
 # ============================================================
-# UI HELPERS
+# UI
 # ============================================================
 
 def draw_section_title(
@@ -1379,6 +1362,7 @@ def draw_section_title(
     x,
     y,
 ):
+
     font = get_font(
         22,
         bold=True,
@@ -1399,7 +1383,14 @@ def draw_section_title(
         rect,
     )
 
-def draw_legend(win, x, y, width):
+
+def draw_legend(
+    win,
+    x,
+    y,
+    width,
+):
+
     item_font = get_font(14)
 
     legend_items = [
@@ -1415,7 +1406,6 @@ def draw_legend(win, x, y, width):
         ("Weighted Path", PATH3),
     ]
 
-   # Split into three columns
     col1_items = legend_items[:4]
     col2_items = legend_items[4:7]
     col3_items = legend_items[7:]
@@ -1425,59 +1415,169 @@ def draw_legend(win, x, y, width):
 
     start_y = y + 4
 
-    # Column positions
     col1_x = x + 10
     col2_x = x + width // 3 + 5
     col3_x = x + (2 * width) // 3 + 5
 
     for index, (label, color) in enumerate(col1_items):
-        item_y = start_y + index * item_height
-        pygame.draw.rect(win, color, (col1_x, item_y, box_size, box_size))
-        pygame.draw.rect(win, WHITE, (col1_x, item_y, box_size, box_size), 1)
-        text = item_font.render(label, True, WHITE)
-        win.blit(text, (col1_x + 22, item_y - 1))
+
+        item_y = (
+            start_y
+            + index * item_height
+        )
+
+        pygame.draw.rect(
+            win,
+            color,
+            (
+                col1_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+        )
+
+        pygame.draw.rect(
+            win,
+            WHITE,
+            (
+                col1_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+            1,
+        )
+
+        text = item_font.render(
+            label,
+            True,
+            WHITE,
+        )
+
+        win.blit(
+            text,
+            (
+                col1_x + 22,
+                item_y - 1,
+            ),
+        )
 
     for index, (label, color) in enumerate(col2_items):
-        item_y = start_y + index * item_height
-        pygame.draw.rect(win, color, (col2_x, item_y, box_size, box_size))
-        pygame.draw.rect(win, WHITE, (col2_x, item_y, box_size, box_size), 1)
-        text = item_font.render(label, True, WHITE)
-        win.blit(text, (col2_x + 22, item_y - 1))
+
+        item_y = (
+            start_y
+            + index * item_height
+        )
+
+        pygame.draw.rect(
+            win,
+            color,
+            (
+                col2_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+        )
+
+        pygame.draw.rect(
+            win,
+            WHITE,
+            (
+                col2_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+            1,
+        )
+
+        text = item_font.render(
+            label,
+            True,
+            WHITE,
+        )
+
+        win.blit(
+            text,
+            (
+                col2_x + 22,
+                item_y - 1,
+            ),
+        )
 
     for index, (label, color) in enumerate(col3_items):
-        item_y = start_y + index * item_height
-        pygame.draw.rect(win, color, (col3_x, item_y, box_size, box_size))
-        pygame.draw.rect(win, WHITE, (col3_x, item_y, box_size, box_size), 1)
-        text = item_font.render(label, True, WHITE)
-        win.blit(text, (col3_x + 22, item_y - 1))
+
+        item_y = (
+            start_y
+            + index * item_height
+        )
+
+        pygame.draw.rect(
+            win,
+            color,
+            (
+                col3_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+        )
+
+        pygame.draw.rect(
+            win,
+            WHITE,
+            (
+                col3_x,
+                item_y,
+                box_size,
+                box_size,
+            ),
+            1,
+        )
+
+        text = item_font.render(
+            label,
+            True,
+            WHITE,
+        )
+
+        win.blit(
+            text,
+            (
+                col3_x + 22,
+                item_y - 1,
+            ),
+        )
+
+
+# ============================================================
+# BUTTON CREATION
+# ============================================================
 
 def make_ui_buttons(
     width,
     panel_width,
     height,
 ):
+
     panel_x = width
 
-    # Small side margin so controls remain fully visible.
     margin_x = 10
 
     usable_width = (
         panel_width
-        - (2 * margin_x)
+        - 2 * margin_x
     )
 
     button_height = 42
     small_gap = 10
 
-    # Same width as A* and Dijkstra.
     standard_button_width = 180
-
-    # ---------------- Options ----------------
-    # Maze-related controls are kept together.
 
     options_y = 55
 
-    # Build Maze
     maze_button = Button(
         panel_x + margin_x,
         options_y + 32,
@@ -1488,8 +1588,6 @@ def make_ui_buttons(
 
     control_width = 45
 
-    rows_display_width = standard_button_width
-
     rows_y = (
         options_y
         + 32
@@ -1499,7 +1597,6 @@ def make_ui_buttons(
 
     options = [
 
-        # 0 - Decrease rows
         Button(
             panel_x + margin_x,
             rows_y,
@@ -1508,25 +1605,23 @@ def make_ui_buttons(
             "-",
         ),
 
-        # 1 - Rows display
         Button(
             panel_x
             + margin_x
             + control_width
             + small_gap,
             rows_y,
-            rows_display_width,
+            standard_button_width,
             button_height,
             f"Rows: {START_ROWS}",
         ),
 
-        # 2 - Increase rows
         Button(
             panel_x
             + margin_x
             + control_width
             + small_gap
-            + rows_display_width
+            + standard_button_width
             + small_gap,
             rows_y,
             control_width,
@@ -1534,7 +1629,6 @@ def make_ui_buttons(
             "+",
         ),
 
-        # 3 - Weight
         Button(
             panel_x + margin_x,
             rows_y
@@ -1545,7 +1639,6 @@ def make_ui_buttons(
             "Weight",
         ),
 
-        # 4 - Clear Path
         Button(
             panel_x + margin_x,
             rows_y
@@ -1555,9 +1648,11 @@ def make_ui_buttons(
             "Clear Path",
         ),
 
-        # 5 - Clear Grid
         Button(
-            panel_x + margin_x + standard_button_width + small_gap,
+            panel_x
+            + margin_x
+            + standard_button_width
+            + small_gap,
             rows_y
             + (button_height + 12) * 2,
             standard_button_width,
@@ -1566,16 +1661,14 @@ def make_ui_buttons(
         ),
     ]
 
-    # ---------------- Algorithms ----------------
-
     algorithm_y = (
         options[5].y
         + options[5].height
         + 38
     )
 
-    algorithm_gap = 10
     algorithm_width = 180
+    algorithm_gap = 10
 
     algorithms = [
 
@@ -1598,8 +1691,6 @@ def make_ui_buttons(
             "Dijkstra",
         ),
     ]
-
-    # ---------------- Output ----------------
 
     output_y = height - 155
     output_height = 135
@@ -1633,11 +1724,10 @@ def draw(
     algorithms,
     options,
     output,
-    weight_mode
+    weight_mode,
 ):
-    win.fill(BG_COLOR)
 
-    # ---------------- Grid ----------------
+    win.fill(BG_COLOR)
 
     for row in grid:
         for node in row:
@@ -1649,15 +1739,12 @@ def draw(
         width,
     )
 
-    # ---------------- Side Panel ----------------
-
     panel_x = width
+
     panel_width = (
-        win.get_width()
+        WINDOW_WIDTH
         - width
     )
-
-    # ---------------- Options ----------------
 
     options_title_y = (
         maze_button.y - 18
@@ -1687,8 +1774,6 @@ def draw(
             BLACK,
         )
 
-    # ---------------- Algorithms ----------------
-
     algorithm_title_y = (
         algorithms[0].y - 18
     )
@@ -1706,9 +1791,10 @@ def draw(
             BLACK,
         )
 
-    # ---------------- Legend ----------------
-
-    legend_y = algorithms[0].y + 75
+    legend_y = (
+        algorithms[0].y
+        + 75
+    )
 
     draw_legend(
         win,
@@ -1717,35 +1803,31 @@ def draw(
         panel_width,
     )
 
-    # ---------------- Results ----------------
-
     output.draw(
         win,
         BLACK,
     )
 
-    pygame.display.update()
+    pygame.display.flip()
 
 
 # ============================================================
-# STATE RESET
+# CLEAR
 # ============================================================
-
-def reset_search_state():
-    return None, None, [], [], False
-
 
 def clear_grid(grid):
+
     for row in grid:
         for node in row:
             node.reset()
 
 
 # ============================================================
-# MAIN APPLICATION
+# MAIN
 # ============================================================
 
 async def main(win, width):
+
     rows = START_ROWS
 
     grid = make_grid(
@@ -1760,8 +1842,8 @@ async def main(win, width):
         output,
     ) = make_ui_buttons(
         width,
-        win.get_width() - width,
-        win.get_height(),
+        PANEL_WIDTH,
+        WINDOW_HEIGHT,
     )
 
     output.set_label1(
@@ -1792,21 +1874,7 @@ async def main(win, width):
     running = True
     started = False
 
-    while running:
-
-        if not process_quit_events():
-            break
-
-        # ---------------- Animations ----------------
-
-        if visited:
-            visit_animation(visited)
-
-        if path:
-            path_animation(path)
-
-        # ---------------- Draw ----------------
-
+    def redraw():
         draw(
             win,
             grid,
@@ -1816,173 +1884,325 @@ async def main(win, width):
             algorithms,
             options,
             output,
-            weight_mode
+            weight_mode,
         )
 
-        # ---------------- Events ----------------
+    while running:
+
+        # ====================================================
+        # ANIMATION
+        # ====================================================
+
+        if visited:
+            visit_animation(visited)
+
+        if path:
+            path_animation(path)
+
+        redraw()
+
+        # ====================================================
+        # EVENTS
+        # ====================================================
 
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
+
                 running = False
                 continue
 
             if event.type == pygame.KEYDOWN:
+
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
                 continue
 
-            # Do not accept grid/menu clicks while an algorithm is running.
             if started:
                 continue
 
             if event.type != pygame.MOUSEBUTTONDOWN:
                 continue
 
-            pos = event.pos
+            # IMPORTANT:
+            # Convert browser coordinates to our 1300x700
+            # application coordinates.
+            pos = get_mouse_pos(
+                event,
+                win,
+            )
 
-            # ====================================================
+            # =================================================
             # LEFT CLICK
-            # ====================================================
+            # =================================================
 
-            if event.button == 1:
+            if event.button != 1:
+                continue
 
-                # ---------------- Grid ----------------
+            # =================================================
+            # GRID
+            # =================================================
 
-                if (
-                    0 <= pos[0] < width
-                    and 0 <= pos[1] < width
-                ):
+            if (
+                0 <= pos[0] < GRID_WIDTH
+                and
+                0 <= pos[1] < GRID_WIDTH
+            ):
 
-                    row, col = get_clicked_pos(
-                        pos,
-                        rows,
-                        width,
-                    )
+                row, col = get_clicked_pos(
+                    pos,
+                    rows,
+                    width,
+                )
+
+                if row is None:
+                    continue
+
+                node = grid[row][col]
+
+                if node in visited:
+                    visited.remove(node)
+
+                if node in path:
+                    path.remove(node)
+
+                # =============================================
+                # WEIGHT MODE
+                # =============================================
+
+                if weight_mode:
 
                     if (
-                        0 <= row < rows
-                        and 0 <= col < rows
+                        node != start
+                        and node != end
+                        and not node.is_barrier()
                     ):
 
-                        node = grid[row][col]
+                        if node.is_weight():
 
-                        if node in visited:
-                            visited.remove(node)
+                            node.weight = False
+                            node.color = WHITE
 
-                        if node in path:
-                            path.remove(node)
-
-                        # ---------------- Weight Mode ----------------
-
-                        if weight_mode:
-
-                            if (
-                                node != start
-                                and node != end
-                                and not node.is_barrier()
-                            ):
-
-                                if node.is_weight():
-                                    node.weight = False
-                                    node.color = WHITE
-
-                                    if node in weighted:
-                                        weighted.remove(node)
-
-                                else:
-                                    node.make_weight()
-
-                                    if node not in weighted:
-                                        weighted.append(node)
-
-                        # ---------------- Normal Mode ----------------
+                            if node in weighted:
+                                weighted.remove(node)
 
                         else:
 
-                            # Pick start
-                            if (
-                                start is None
-                                and node != end
-                            ):
-                                start = node
-                                start.make_start()
+                            node.make_weight()
 
-                            # Pick end
-                            elif (
-                                end is None
-                                and node != start
-                            ):
-                                end = node
-                                end.make_end()
+                            if node not in weighted:
+                                weighted.append(node)
 
-                            # Make barrier
-                            elif (
-                                node != start
-                                and node != end
-                            ):
-                                node.make_barrier()
+                # =============================================
+                # NORMAL MODE
+                # =============================================
 
-                # ---------------- Build Maze ----------------
+                else:
 
-                elif maze_button.is_hover(pos):
+                    if (
+                        start is None
+                        and node != end
+                    ):
+
+                        start = node
+                        start.make_start()
+
+                    elif (
+                        end is None
+                        and node != start
+                    ):
+
+                        end = node
+                        end.make_end()
+
+                    elif (
+                        node != start
+                        and node != end
+                    ):
+
+                        node.make_barrier()
+
+                continue
+
+            # =================================================
+            # BUILD MAZE
+            # =================================================
+
+            if maze_button.is_hover(pos):
+
+                started = True
+                weight_mode = False
+
+                start = None
+                end = None
+
+                visited = []
+                path = []
+                weighted = []
+
+                clear_grid(grid)
+
+                output.set_text1(
+                    "Generating maze..."
+                )
+
+                output.set_text2("")
+                output.set_text3("")
+
+                redraw()
+
+                await recursive_div(
+                    grid,
+                    width,
+                    win,
+                    redraw,
+                )
+
+                output.set_label1(
+                    f"Number of rows: {rows}"
+                )
+
+                output.set_text1(
+                    "1. Build maze and add weights to cells"
+                )
+
+                output.set_text2(
+                    "2. Pick starting node and ending node"
+                )
+
+                output.set_text3(
+                    "3. Pick an algorithm"
+                )
+
+                started = False
+
+                continue
+
+            # =================================================
+            # A*
+            # =================================================
+
+            if algorithms[0].is_hover(pos):
+
+                if start and end:
 
                     started = True
-                    weight_mode = False
 
-                    start = None
-                    end = None
+                    prepare_search(grid)
 
                     visited = []
                     path = []
-                    weighted = []
-
-                    clear_grid(grid)
 
                     output.set_text1(
-                        "Generating maze..."
+                        "Running A*..."
                     )
 
                     output.set_text2("")
                     output.set_text3("")
 
-                    output.draw(
-                        win,
-                        BLACK,
-                    )
+                    redraw()
 
-                    pygame.display.update()
-
-                    await recursive_div(
-                        lambda: draw(
-                            win,
-                            grid,
-                            rows,
-                            width,
-                            maze_button,
-                            algorithms,
-                            options,
-                            output,
-                            weight_mode
-                        ),
-                        width,
+                    visited, path = await A_star(
+                        redraw,
                         grid,
                         start,
                         end,
-                        0,
-                        rows,
-                        0,
-                        rows,
+                        output,
                         win,
+                        width,
                     )
 
-                    output.set_label1(
-                        f"Number of rows: {rows}"
-                    )
+                    if not path:
+                        output.set_text1(
+                            "Path not available"
+                        )
+
+                    started = False
+
+                else:
 
                     output.set_text1(
-                        "1. Build maze and add weights to cells"
+                        "Select a start and end node first"
+                    )
+
+                continue
+
+            # =================================================
+            # DIJKSTRA
+            # =================================================
+
+            if algorithms[1].is_hover(pos):
+
+                if start and end:
+
+                    started = True
+
+                    prepare_search(grid)
+
+                    visited = []
+                    path = []
+
+                    output.set_text1(
+                        "Running Dijkstra..."
+                    )
+
+                    output.set_text2("")
+                    output.set_text3("")
+
+                    redraw()
+
+                    visited, path = await Dijkstra(
+                        redraw,
+                        grid,
+                        start,
+                        end,
+                        output,
+                        win,
+                        width,
+                    )
+
+                    if not path:
+                        output.set_text1(
+                            "Path not available"
+                        )
+
+                    started = False
+
+                else:
+
+                    output.set_text1(
+                        "Select a start and end node first"
+                    )
+
+                continue
+
+            # =================================================
+            # WEIGHT
+            # =================================================
+
+            if options[3].is_hover(pos):
+
+                weight_mode = not weight_mode
+
+                if weight_mode:
+
+                    output.set_text1(
+                        "Weight mode enabled"
+                    )
+
+                    output.set_text2(
+                        "Click cells to add weights"
+                    )
+
+                    output.set_text3(
+                        "Click Weight again to exit"
+                    )
+
+                else:
+
+                    output.set_text1(
+                        "Weight mode disabled"
                     )
 
                     output.set_text2(
@@ -1993,285 +2213,165 @@ async def main(win, width):
                         "3. Pick an algorithm"
                     )
 
-                    started = False
+                continue
 
-                # ---------------- A* ----------------
+            # =================================================
+            # CLEAR PATH
+            # =================================================
 
-                elif algorithms[0].is_hover(pos):
+            if options[4].is_hover(pos):
 
-                    if start and end:
+                started = False
+                weight_mode = False
 
-                        started = True
+                for row in grid:
 
-                        prepare_search(grid)
+                    for node in row:
+                        node.clear_search()
 
-                        visited = []
-                        path = []
+                visited.clear()
+                path.clear()
 
-                        output.set_text1(
-                            "Running A*..."
-                        )
+                output.set_text1(
+                    "Paths cleared"
+                )
 
-                        output.set_text2("")
-                        output.set_text3("")
+                output.set_text2(
+                    "Maze and weights preserved"
+                )
 
-                        draw(
-                            win,
-                            grid,
-                            rows,
-                            width,
-                            maze_button,
-                            algorithms,
-                            options,
-                            output,
-                            weight_mode
-                        )
+                output.set_text3(
+                    "Ready to run another algorithm"
+                )
 
-                        visited, path = await A_star(
-                            lambda: draw(
-                                win,
-                                grid,
-                                rows,
-                                width,
-                                maze_button,
-                                algorithms,
-                                options,
-                                output,
-                                weight_mode
-                            ),
-                            grid,
-                            start,
-                            end,
-                            output,
-                            win,
-                            width,
-                        )
+                continue
 
-                        if not path:
-                            output.set_text1(
-                                "Path not available"
-                            )
+            # =================================================
+            # DECREASE ROWS
+            # =================================================
 
-                        started = False
+            if options[0].is_hover(pos):
 
-                    else:
+                if rows > MIN_ROWS:
 
-                        output.set_text1(
-                            "Select a start and end node first"
-                        )
+                    rows -= 1
 
-                # ---------------- Dijkstra ----------------
-
-                elif algorithms[1].is_hover(pos):
-
-                    if start and end:
-
-                        started = True
-
-                        prepare_search(grid)
-
-                        visited = []
-                        path = []
-
-                        output.set_text1(
-                            "Running Dijkstra..."
-                        )
-
-                        output.set_text2("")
-                        output.set_text3("")
-
-                        draw(
-                            win,
-                            grid,
-                            rows,
-                            width,
-                            maze_button,
-                            algorithms,
-                            options,
-                            output,
-                            weight_mode
-                        )
-
-                        visited, path = await Dijkstra(
-                            lambda: draw(
-                                win,
-                                grid,
-                                rows,
-                                width,
-                                maze_button,
-                                algorithms,
-                                options,
-                                output,
-                                weight_mode
-                            ),
-                            grid,
-                            start,
-                            end,
-                            output,
-                            win,
-                            width,
-                        )
-
-                        if not path:
-                            output.set_text1(
-                                "Path not available"
-                            )
-
-                        started = False
-
-                    else:
-
-                        output.set_text1(
-                            "Select a start and end node first"
-                        )
-
-                # ---------------- Weight Mode ----------------
-
-                elif options[3].is_hover(pos):
-
-                    weight_mode = not weight_mode
-
-                    if weight_mode:
-                        output.set_text1(
-                            "Weight mode enabled"
-                        )
-                        output.set_text2(
-                            "Click cells to add weights"
-                        )
-                        output.set_text3(
-                            "Click Weight again to exit"
-                        )
-                    else:
-                        output.set_text1(
-                            "Weight mode disabled"
-                        )
-
-                        output.set_text2(
-                            "2. Pick starting node and ending node"
-                        )
-
-                        output.set_text3(
-                            "3. Pick an algorithm"
-                        )
-
-                # ---------------- Clear Path----------------
-
-                elif options[4].is_hover(pos):
-                    started = False
-                    weight_mode = False
-
-                    for row in grid:
-                        for node in row:
-                            node.clear_search()
-
-                    visited.clear()
-
-                    for row in grid:
-                        for node in row:
-                            if node.is_weight():
-                                weighted.append(node)
-
-                    output.set_text1("Paths cleared")
-                    output.set_text2("Maze and weights preserved")
-                    output.set_text3("Ready to run another algorithm")
-
-                # ---------------- Decrease rows ----------------
-
-                elif options[0].is_hover(pos):
-
-                    if rows > MIN_ROWS:
-
-                        rows -= 1
-
-                        start = None
-                        end = None
-
-                        weight_mode = False
-
-                        visited = []
-                        path = []
-                        weighted = []
-
-                        grid = make_grid(
-                            rows,
-                            width,
-                        )
-
-                    output.set_label1(
-                        f"Number of rows: {rows}"
-                    )
-
-                    output.set_text1(
-                        "1. Build maze and add weights to cells"
-                    )
-
-                    output.set_text2(
-                        "2. Pick starting node and ending node"
-                    )
-
-                    output.set_text3(
-                        "3. Pick an algorithm"
-                    )
-
-                    options[1].text = (
-                        f"Rows: {rows}"
-                    )
-
-                # ---------------- Increase rows ----------------
-
-                elif options[2].is_hover(pos):
-
-                    if rows < MAX_ROWS:
-
-                        rows += 1
-
-                        start = None
-                        end = None
-
-                        weight_mode = False
-
-                        visited = []
-                        path = []
-                        weighted = []
-
-                        grid = make_grid(
-                            rows,
-                            width,
-                        )
-
-                    output.set_label1(
-                        f"Number of rows: {rows}"
-                    )
-
-                    output.set_text1(
-                        "1. Build maze and add weights to cells"
-                    )
-
-                    output.set_text2(
-                        "2. Pick starting node and ending node"
-                    )
-
-                    output.set_text3(
-                        "3. Pick an algorithm"
-                    )
-
-                    options[1].text = (
-                        f"Rows: {rows}"
-                    )
-                elif options[5].is_hover(pos):
-                    started = False
-                    weight_mode = False
-
-                    grid = make_grid(rows, GRID_WIDTH)
                     start = None
                     end = None
+
+                    weight_mode = False
+
+                    visited = []
+                    path = []
                     weighted = []
 
-                    output.set_text1("Grid cleared")
-                    output.set_text2("Rebuild the maze")
-                    output.set_text3("Select start point, end points and algorithm")
-    
-        # Required for browser/Pygbag responsiveness.
+                    grid = make_grid(
+                        rows,
+                        width,
+                    )
+
+                output.set_label1(
+                    f"Number of rows: {rows}"
+                )
+
+                output.set_text1(
+                    "1. Build maze and add weights to cells"
+                )
+
+                output.set_text2(
+                    "2. Pick starting node and ending node"
+                )
+
+                output.set_text3(
+                    "3. Pick an algorithm"
+                )
+
+                options[1].text = (
+                    f"Rows: {rows}"
+                )
+
+                continue
+
+            # =================================================
+            # INCREASE ROWS
+            # =================================================
+
+            if options[2].is_hover(pos):
+
+                if rows < MAX_ROWS:
+
+                    rows += 1
+
+                    start = None
+                    end = None
+
+                    weight_mode = False
+
+                    visited = []
+                    path = []
+                    weighted = []
+
+                    grid = make_grid(
+                        rows,
+                        width,
+                    )
+
+                output.set_label1(
+                    f"Number of rows: {rows}"
+                )
+
+                output.set_text1(
+                    "1. Build maze and add weights to cells"
+                )
+
+                output.set_text2(
+                    "2. Pick starting node and ending node"
+                )
+
+                output.set_text3(
+                    "3. Pick an algorithm"
+                )
+
+                options[1].text = (
+                    f"Rows: {rows}"
+                )
+
+                continue
+
+            # =================================================
+            # CLEAR GRID
+            # =================================================
+
+            if options[5].is_hover(pos):
+
+                started = False
+                weight_mode = False
+
+                grid = make_grid(
+                    rows,
+                    width,
+                )
+
+                start = None
+                end = None
+
+                visited = []
+                path = []
+                weighted = []
+
+                output.set_text1(
+                    "Grid cleared"
+                )
+
+                output.set_text2(
+                    "Rebuild the maze"
+                )
+
+                output.set_text3(
+                    "Select start point, end point and algorithm"
+                )
+
+        # Give the browser time to process events.
         await asyncio.sleep(0)
 
     pygame.quit()
@@ -2282,8 +2382,11 @@ async def main(win, width):
 # ============================================================
 
 async def run():
+
     pygame.init()
 
+    # FIXED application surface.
+    # Do not use fullscreen or browser-sized dimensions.
     win = pygame.display.set_mode(
         (
             WINDOW_WIDTH,
